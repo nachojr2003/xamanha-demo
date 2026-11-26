@@ -1,0 +1,181 @@
+<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Xaman-Ha &middot; Simulador de grupo con hoteles</title><meta name="robots" content="noindex">
+<style>
+:root{--bg:#161616;--blue:#2274CC;--blue2:#1b5fa8;--chat:#efeae2;--out:#d9fdd3;--in:#fff;--ink:#111b21;--mut:#667781;--hd:#202c33}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%}
+body{font-family:'Albert Sans','Roboto',-apple-system,'Segoe UI','Segoe UI Emoji','Apple Color Emoji','Noto Color Emoji',Arial,sans-serif;background:var(--bg);color:#f5f5f5;display:flex;flex-direction:column;min-height:100vh}
+.top{display:flex;align-items:center;gap:12px;padding:10px 16px;background:#0f0f0f;border-bottom:1px solid #2a2a2a}
+.top .brand{display:flex;align-items:center;gap:10px;font-weight:800;letter-spacing:.04em;font-size:14px;color:#f5f5f5;text-decoration:none}
+.logo{width:34px;height:34px;border-radius:50%;background:var(--blue);display:inline-flex;align-items:center;justify-content:center;overflow:hidden;color:#fff;font-weight:800;flex:0 0 auto}
+.logo img{width:100%;height:100%;object-fit:cover;display:block}
+.top .sp{flex:1}
+.top a.btn{background:var(--blue);color:#fff;text-decoration:none;font-weight:700;font-size:13px;padding:8px 14px;border-radius:42px;white-space:nowrap}
+.top a.btn:hover{background:var(--blue2)}
+.band{background:#2b2108;color:#f3d98b;font-size:12.5px;text-align:center;padding:6px 12px;border-bottom:1px solid #4a3a10}
+.band.b2{background:#10243a;color:#a9cdf2;border-color:#1b3a5c}
+.band.mockn{background:#3a2412;color:#ffc79a}
+.wrap{flex:1;display:flex;justify-content:center;padding:18px 12px;min-height:0}
+.phone{width:100%;max-width:560px;height:calc(100vh - 180px);min-height:480px;max-height:820px;background:var(--chat);border-radius:14px;overflow:hidden;display:flex;flex-direction:column;box-shadow:0 10px 40px rgba(0,0,0,.5);color:var(--ink)}
+.hd{background:var(--hd);color:#e9edef;display:flex;align-items:center;gap:12px;padding:10px 14px}
+.hd.r2{padding-top:0;gap:8px;flex-wrap:wrap}
+.hd .t{display:flex;flex-direction:column;min-width:0;flex:1}
+.hd .n{font-weight:700;font-size:15px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.hd .s{font-size:12px;color:#8696a0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.hd button,.hd select{background:#2a3942;color:#e9edef;border:0;border-radius:8px;font:inherit;font-size:12px;padding:6px 9px;cursor:pointer;max-width:200px}
+.msgs{flex:1;overflow-y:auto;padding:14px 12px;background:var(--chat);display:flex;flex-direction:column;gap:6px}
+.day{align-self:center;background:#fff;color:var(--mut);font-size:11.5px;padding:4px 10px;border-radius:8px;box-shadow:0 1px 1px rgba(0,0,0,.08);margin:4px 0}
+.m{max-width:84%;padding:6px 9px 4px;border-radius:9px;font-size:14.5px;line-height:1.36;box-shadow:0 1px 1px rgba(0,0,0,.12);word-wrap:break-word;overflow-wrap:anywhere}
+.m.in{align-self:flex-start;background:var(--in);border-top-left-radius:2px}
+.m.out{align-self:flex-end;background:var(--out);border-top-right-radius:2px}
+.m .who{font-size:12.5px;font-weight:700;margin-bottom:2px}
+.m .ln{display:block;min-height:1px}.m .ln.sep{height:6px}.m .ln.li{padding-left:2px}
+.m .tm{font-size:10.5px;color:var(--mut);text-align:right;margin-top:2px}
+.m a{color:#027eb5;word-break:break-all}
+.m img{max-width:1.2em !important;max-height:1.2em !important;display:inline-block !important;vertical-align:text-bottom !important}
+.m.sys{align-self:center;background:#fff3cd;color:#664d03;font-size:12.5px;max-width:92%;text-align:center}
+.m.sys.err{background:#fde2e2;color:#7a1a1a}
+.m.sys button{margin-top:6px;border:0;background:var(--blue);color:#fff;border-radius:20px;padding:6px 12px;font-size:12.5px;cursor:pointer}
+.card{align-self:flex-start;max-width:88%;background:#fff;border-left:4px solid var(--blue);border-radius:9px;padding:9px 12px;font-size:13px;box-shadow:0 1px 2px rgba(0,0,0,.15)}
+.card b{display:block;margin-bottom:3px}
+.card a{display:inline-block;margin-top:6px;background:var(--blue);color:#fff;text-decoration:none;border-radius:20px;padding:6px 13px;font-weight:700;font-size:12.5px}
+.typing{align-self:flex-start;background:#fff;border-radius:9px;padding:8px 12px;color:var(--mut);font-size:13px}
+.chips{display:flex;gap:6px;flex-wrap:wrap;padding:8px 10px 0;background:#f0f2f5}
+.chips button{border:1px solid #c9d3d9;background:#fff;color:var(--ink);border-radius:16px;padding:5px 10px;font:inherit;font-size:12.5px;cursor:pointer;text-align:left}
+.chips button:hover{border-color:var(--blue);color:var(--blue)}
+form.inp{display:flex;gap:8px;padding:8px 10px 10px;background:#f0f2f5}
+form.inp input{flex:1;border:0;border-radius:22px;padding:10px 14px;font:inherit;font-size:14.5px;min-width:0;background:#fff;color:var(--ink)}
+form.inp button{border:0;background:var(--blue);color:#fff;border-radius:50%;width:42px;height:42px;font-size:18px;cursor:pointer;flex:0 0 auto}
+form.inp button:disabled{opacity:.5}
+footer{font-size:12px;color:#8a8a8a;text-align:center;padding:8px 12px 12px}
+footer a{color:#8ab4e6}
+@media(max-width:600px){.wrap{padding:0}.phone{border-radius:0;height:calc(100vh - 290px);min-height:420px;max-height:none}.top a.btn{padding:7px 10px;font-size:12px}.m{max-width:90%}.top .brand span.txt{display:none}}
+</style></head><body>
+<div class="top"><a class="brand" href="index.html"><span class="logo" id="tl"></span><span class="txt">XAMAN-HA&reg; CONNECTIONS</span></a><span class="sp"></span><a class="btn" href="panel.html">Ver la ficha en el CRM &rarr;</a></div>
+<div class="band">Simulaci&oacute;n &mdash; canal 2: grupos con hoteles (PROPUESTA t&eacute;cnica, se confirma en la reuni&oacute;n)</div>
+<div class="band b2" id="b2">Escribes como la concierge del hotel (ficticio). Hoteles y personas inventados. A&ntilde;ade <b>?mock=1</b> para ver un guion sin conexi&oacute;n.</div>
+<div class="wrap"><div class="phone">
+<div class="hd"><span id="av"></span><div class="t"><span class="n">Xaman-Ha &times; Hotel Demo (grupo)</span><span class="s" id="st"></span></div><select id="sel" aria-label="Concierge"></select></div>
+<div class="hd r2"><button id="tk" type="button">Tomar el control (Reservas)</button><button id="ns" type="button">Nueva solicitud</button><button id="rs" type="button">Reiniciar grupo</button></div>
+<div class="msgs" id="msgs" aria-live="polite"></div>
+<div class="chips" id="chips"></div>
+<form class="inp" id="f" autocomplete="off"><input id="in" type="text" placeholder="Escribe como la concierge" maxlength="800" aria-label="Mensaje"><button id="send" type="submit" aria-label="Enviar">&#10148;</button></form>
+</div></div>
+<footer>Demo de <b>IJV Agency</b> &middot; sitio de muestra: no es la web oficial ni un WhatsApp real y no se env&iacute;a nada a nadie. Usa solo datos inventados. &middot; <a href="https://ijvagency.com/" target="_blank" rel="noopener">Powered by IJV</a></footer>
+<script src="config.js"></script>
+<script>
+(function(){'use strict';
+var qs=new URLSearchParams(location.search);
+var MOCK=qs.get('mock')==='1';
+var EP=(window.XAMANHA_DEMO&&window.XAMANHA_DEMO.chat)||'';
+var TIMEOUT=45000;
+function $(id){return document.getElementById(id);}
+function esc(s){return String(s==null?'':s).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];});}
+function rid(){return Math.random().toString(16).slice(2,10)+Date.now().toString(36).slice(-4);}
+function hora(){var d=new Date();return ('0'+d.getHours()).slice(-2)+':'+('0'+d.getMinutes()).slice(-2);}
+function enLinea(l){var h=esc(l);
+ h=h.replace(/\*\*([^*\n]+)\*\*/g,'<strong>$1</strong>');
+ h=h.replace(/(^|[^\w*])\*([^*\n]+)\*(?![\w*])/g,'$1<strong>$2</strong>');
+ h=h.replace(/(^|[^\w_])_([^_\n]+)_(?![\w_])/g,'$1<em>$2</em>');
+ return h;}
+function fmt(t){var s=String(t==null?'':t).replace(/\r\n?/g,'\n');
+ s=s.replace(/\[([^\]\n]+)\]\((https?:\/\/[^)\s]+)\)/g,'$1: $2');
+ return s.split('\n').map(function(l){
+  if(!l.trim())return '<span class="ln sep"></span>';
+  var m=/^\s*[-•*]\s+(.*)$/.exec(l);if(m)return '<span class="ln li">• '+enLinea(m[1])+'</span>';
+  return '<span class="ln">'+enLinea(l)+'</span>';}).join('');}
+function quitaMarcas(t){return String(t||'').replace(/\[\[[A-Z_]+:[\s\S]*?\]\]/g,'').trim();}
+function enlaza(root){
+ var RE=/https?:\/\/[^\s<>"']+/g;
+ var w=document.createTreeWalker(root,NodeFilter.SHOW_TEXT,null),nodes=[],n;
+ while((n=w.nextNode())){ if(n.parentNode&&n.parentNode.tagName==='A')continue; nodes.push(n); }
+ nodes.forEach(function(t){var txt=t.nodeValue;RE.lastIndex=0;if(!RE.test(txt))return;RE.lastIndex=0;
+  var f=document.createDocumentFragment(),last=0,m;
+  while((m=RE.exec(txt))){var u=m[0],tail='';while(u&&'.,;:!?)]}"\''.indexOf(u.charAt(u.length-1))>=0){tail=u.charAt(u.length-1)+tail;u=u.slice(0,-1);}
+   f.appendChild(document.createTextNode(txt.slice(last,m.index)));
+   var a=document.createElement('a');a.href=u;a.target='_blank';a.rel='noopener noreferrer';a.textContent=u;f.appendChild(a);
+   f.appendChild(document.createTextNode(tail));last=m.index+m[0].length;}
+  f.appendChild(document.createTextNode(txt.slice(last)));t.parentNode.replaceChild(f,t);});}
+function post(url,body){
+ var ctl=('AbortController' in window)?new AbortController():null;
+ var to=setTimeout(function(){if(ctl)ctl.abort();},TIMEOUT);
+ return fetch(url,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body),signal:ctl?ctl.signal:undefined,cache:'no-store'})
+ .then(function(r){clearTimeout(to);return r.text().then(function(t){var j=null;try{j=t?JSON.parse(t):null;}catch(e){}
+  if(!r.ok){var e=new Error('HTTP '+r.status);e.status=r.status;throw e;}return j||{};});},function(e){clearTimeout(to);throw e;});}
+function postRe(url,body,i){i=i||0;return post(url,body).catch(function(e){if((!e.status||e.status>=500)&&i<1)return postRe(url,body,i+1);throw e;});}
+function errMsg(e){
+ if(e&&e.sinConfig)return 'Falta la configuración del asistente (config.js). Abre esta página con ?mock=1 para ver el guion de muestra.';
+ if(e&&e.status===404)return 'La asistente aún no está conectada en este servidor. Reintenta en unos minutos o abre esta página con ?mock=1 para ver el guion de muestra.';
+ if(e&&e.name==='AbortError')return 'La asistente tardó más de 45 s en responder. Reintenta, o abre esta página con ?mock=1 para ver el guion de muestra sin conexión.';
+ return 'No pudimos comunicarnos con la asistente en este momento. Reintenta, o abre esta página con ?mock=1 para ver el guion de muestra sin conexión.';}
+function logoNode(){var s=document.createElement('span');s.className='logo';
+ var i=new Image();i.alt='';i.src='assets/logo-xamcon-wp.webp';
+ function fb(){s.textContent='X';if(i.parentNode)i.parentNode.removeChild(i);}
+ i.onerror=fb;s.appendChild(i);if(i.complete&&i.naturalWidth===0)fb();return s;}
+function esConfirmacion(t){return /confirm your details|confirmo tus datos/i.test(t);}
+function scrollBottom(el){el.scrollTop=el.scrollHeight;if(window.requestAnimationFrame)requestAnimationFrame(function(){el.scrollTop=el.scrollHeight;});}
+function delay(ms){return new Promise(function(r){setTimeout(r,ms);});}
+
+var HOTELES=[
+ {id:'paraiso',hotel:'Hotel Demo Paraíso Tulum',con:'Concierge Ana'},
+ {id:'cabo',hotel:'Hotel Demo Cabo Azul',con:'Concierge Marco'}];
+var CHIPS=["Do you have availability tomorrow for a cenote tour? Guest in room 304, 2 adults 1 kid (8)","¿Qué nos recomiendan para una pareja de luna de miel?","Need a yacht for 6 on Saturday, 4 hours"];
+var hilos={};HOTELES.forEach(function(h){hilos[h.id]={ses:'grp_demo_'+h.id+'_'+rid(),msgs:[],pausa:false,paso:0};});
+var cur=HOTELES[0];
+var st={busy:false};
+function T(){return hilos[cur.id];}
+function ctx(){return '[Grupo WhatsApp · '+cur.hotel+' · escribe: '+cur.con+']\n';}
+function mockRep(t,h){
+ var s=t.toLowerCase();
+ if(/cenote/.test(s)&&h.paso===0){h.paso=1;return "Hi "+cur.con.replace('Concierge ','')+"! Yes, we can set up a private cenote tour for 2 adults and 1 kid (8), room 304. Our team confirms availability for tomorrow.\n\nWhat pick-up time would the guests like, or shall we suggest one?";}
+ if(h.paso===1){h.paso=2;return "Noted. *Confirm your details*\n\nNAME: guest in room 304\nDATE: tomorrow\nSERVICE: Private cenote tour\nPICK UP TIME: to be suggested by the team\nADULTS/KIDS: 2 adults + 1 kid (8)\nHOTEL: "+cur.hotel+"\nROOM: 304\nPRICE: price confirmed by the team\nCONCIERGE: "+cur.con+"\n\nI'll leave this as *pending confirmation* for the reservations team, who will confirm availability and reply here.";}
+ if(/luna|honeymoon|pareja|couple/.test(s))return "¡Claro! Para una pareja de luna de miel les recomiendo 3 opciones:\n\n- Tour privado a cenotes con paradas tranquilas y fotos\n- Tulum y playa al atardecer, a su ritmo\n- Ceremonia maya de cacao (la confirma el equipo con el proveedor)\n\n¿Qué día les interesa y en qué habitación están?";
+ if(/yacht|boat|yate|lancha/.test(s))return "Happy to help with a boat. Boats are handled with an external provider, so the team always confirms availability.\n\nHow many adults and kids, and which room is the guest in?";
+ return "Thanks! Could you share the date, number of adults and kids, and the room? I'll prepare the request for our reservations team.";}
+function pinta(){
+ var h=T(),box=$('msgs');
+ box.innerHTML='<span class="day">Hoy</span><span class="m sys">Grupo: '+esc(cur.hotel)+' × Xaman-Ha. Participantes: '+esc(cur.con)+' (hotel), Reservas Xaman-Ha (humano) e Itzel (IA).</span>'
+  +(MOCK?'<span class="m sys">Modo de prueba local: las respuestas son un guion, no de la asistente real.</span>':'');
+ h.msgs.forEach(function(m,i){var d=document.createElement('div');
+  if(m.k==='sys'){d.className='m sys'+(m.err?' err':'');d.innerHTML='<div>'+esc(m.t)+'</div>';
+   if(m.re){var b=document.createElement('button');b.textContent='Reintentar';b.onclick=function(){h.msgs.splice(i,1);enviar(m.re,true);};d.appendChild(b);}}
+  else{d.className='m '+(m.k==='con'?'out':'in');
+   var col=m.k==='con'?'#128c7e':(m.k==='ia'?'#2274CC':'#b5532a');
+   d.innerHTML='<div class="who" style="color:'+col+'">'+esc(m.w)+'</div><div class="body">'+fmt(m.t)+'</div><div class="tm">'+esc(m.h)+'</div>';enlaza(d.querySelector('.body'));}
+  box.appendChild(d);
+  if(m.k==='ia'&&esConfirmacion(m.t)){var c=document.createElement('div');c.className='card';
+   c.innerHTML='<b>Solicitud registrada «por confirmar»</b>Queda con hotel, habitación y concierge para el equipo de reservas.<br><a href="panel.html">Ver la ficha que se acaba de crear &rarr;</a>';box.appendChild(c);}});
+ if(h.pausa){var n=document.createElement('div');n.className='m sys';n.textContent='Reservas tomó el control: Itzel está en pausa en este grupo.';box.appendChild(n);}
+ if(st.busy){var t=document.createElement('div');t.className='typing';t.textContent='Itzel (IA) está escribiendo…';box.appendChild(t);}
+ $('tk').textContent=h.pausa?'Devolver a Itzel':'Tomar el control (Reservas)';
+ $('st').textContent=cur.con+', Reservas Xaman-Ha, Itzel (IA)';
+ scrollBottom(box);var c2=$('chips');c2.innerHTML='';
+ if(!h.msgs.length)CHIPS.forEach(function(x){var b=document.createElement('button');b.textContent=x;b.onclick=function(){enviar(x);};c2.appendChild(b);});
+}
+function enviar(texto,re){
+ texto=String(texto||'').trim();var h=T();if(!texto||st.busy)return;
+ if(!re)h.msgs.push({k:'con',w:cur.con,t:texto,h:hora()});
+ if(h.pausa){pinta();return;}
+ var ctxTxt=ctx(),ses=h.ses;st.busy=true;$('send').disabled=true;pinta();
+ var ll;
+ if(MOCK)ll=delay(800+Math.random()*500).then(function(){return {output:mockRep(texto,h)};});
+ else if(!EP)ll=Promise.reject({sinConfig:true});
+ else ll=postRe(EP,{message:ctxTxt+texto,sessionId:ses,channel:'web',origin:location.origin});
+ ll.then(function(r){return {r:r};},function(e){return {e:e};}).then(function(a){
+  if(a.e)h.msgs.push({k:'sys',err:1,t:errMsg(a.e),re:texto});
+  else{var rep=a.r&&(a.r.output||a.r.response||a.r.text);rep=rep&&String(rep).trim()?quitaMarcas(rep):'';
+   if(rep)h.msgs.push({k:'ia',w:'Itzel (IA)',t:rep,h:hora()});else h.msgs.push({k:'sys',err:1,t:'La asistente respondió vacío.',re:texto});}
+  st.busy=false;$('send').disabled=false;pinta();});
+}
+$('tk').onclick=function(){var h=T();h.pausa=!h.pausa;
+ if(h.pausa)h.msgs.push({k:'hum',w:'Reservas Xaman-Ha (humano)',t:'Hola '+cur.con.replace('Concierge ','')+', soy del equipo de reservas. Ya revisé la solicitud: estoy confirmando disponibilidad con el proveedor y te escribo en unos minutos con el precio final.',h:hora()});
+ pinta();};
+$('ns').onclick=function(){var h=T();h.ses='grp_demo_'+cur.id+'_'+rid();h.pausa=false;h.msgs.push({k:'sys',t:'Nueva solicitud: Itzel la trata como una reserva distinta.'});pinta();};
+$('rs').onclick=function(){hilos[cur.id]={ses:'grp_demo_'+cur.id+'_'+rid(),msgs:[],pausa:false,paso:0};pinta();};
+var sel=$('sel');HOTELES.forEach(function(x,i){var o=document.createElement('option');o.value=i;o.textContent=x.con+' · '+x.hotel;sel.appendChild(o);});
+sel.onchange=function(){cur=HOTELES[+sel.value];pinta();};
+$('tl').appendChild(logoNode());$('av').appendChild(logoNode());
+$('f').onsubmit=function(e){e.preventDefault();var i=$('in');var v=i.value;i.value='';enviar(v);};
+if(MOCK)$('b2').classList.add('mockn');
+pinta();
+})();
+</script></body></html>

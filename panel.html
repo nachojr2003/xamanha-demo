@@ -1,0 +1,443 @@
+<!doctype html>
+<!--
+  ARM de reservas — Xaman-Ha Connections (demo IJV Agency). Un solo archivo, HTML + JS vanilla, sin dependencias externas.
+  Molde: clients/demo-nakamine/site/panel.html. Marca: #161616 + azul #2274CC (Albert Sans / Roboto).
+
+  ENDPOINT (GET https://meta.ijvagency.com/webhook/xamanha-demo-panel), mismo JSON que nakamine-demo-panel:
+    { ok:true, generado:ISO, leads:[ { lead_id, session_id, nombre, telefono, calificacion?, resumen, estado, programado_para?, creado } ] }
+    resumen = context_summary en DOS formatos (el parser acepta ambos):
+      draft:   <Alta|Media|Baja>; Svc: …; Det: …; Dest: …; Fecha: …; Pickup: …; Pax: …; Hotel: …; Room: …; Vuelo: …; Precio: …; Concierge: …; Lang: …; <nota>
+      pending: Calificación: <texto de arriba> | <último mensaje del viajero>
+    estado: draft→Ficha completa · pending→Reserva por confirmar · verified→Disponibilidad confirmada · rejected→Perdido
+  Sesiones: grp_demo_* = Grupo hotel · wa_demo_* = WhatsApp · web_* y otras = Web. Se excluyen ijv-smoke-*, eval_* salvo ?incluir_pruebas=1.
+  PROPUESTA / MAQUETA (rotulado en pantalla): «Enviar a sistema de reservas», Seguimientos, integración Kommo, pasos posteriores del pipeline.
+  Parámetros: ?vista=atender|reservas|pipeline|hoteles|seguimientos|gerencia · ?mock=1 solo ejemplos · ?incluir_pruebas=1
+  AJUSTAR EL PARSER: la lista ETIQUETAS (arriba del script) mapea cada campo a sus abreviaturas; agregar una abreviatura = 1 línea.
+  Todos los datos marcados EJEMPLO son ficticios.
+-->
+<html lang="es-MX">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex">
+<title>ARM de reservas · Xaman-Ha Connections (demo)</title>
+<style>
+@font-face{font-family:'Roboto';font-weight:100 900;font-display:swap;src:url(./assets/roboto-kfo5cnqeu92fr1mu53zec9_vu3r1gihoszmkenkawzu.woff2) format('woff2');unicode-range:U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+2000-206F,U+2074,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD}
+:root{--bg:#161616;--bg2:#1f1f1f;--card:#fff;--page:#f2f4f7;--ink:#161616;--txt:#262a30;--mut:#667085;--line:#dfe3e9;--blue:#2274CC;--blue-d:#185a9f;--blue-50:#e6f0fb;--ok:#1E7A46;--ok-50:#e3f3ea;--amb:#a96a00;--amb-50:#fff1cf;--red:#b42318;--red-50:#fde8e6;--r:12px;
+--f:'Albert Sans','Roboto',system-ui,-apple-system,'Segoe UI',Arial,sans-serif}
+*{box-sizing:border-box}
+body{margin:0;background:var(--page);color:var(--txt);font:15px/1.45 var(--f)}
+button,select,input,textarea{font:inherit}
+header{background:var(--bg);color:#f5f5f5;padding:12px 16px;display:flex;align-items:center;gap:12px;flex-wrap:wrap;position:sticky;top:0;z-index:20}
+.logo{width:36px;height:36px;border-radius:50%;background:var(--blue);display:grid;place-items:center;font-weight:800;color:#fff;flex:none}
+.brand{font-weight:800;letter-spacing:.06em;font-size:14px;text-transform:uppercase;line-height:1.1}
+.brand small{display:block;font-weight:500;letter-spacing:.02em;text-transform:none;color:#b9bec7;font-size:12px}
+.hsp{flex:1}
+.live{font-size:12px;padding:4px 10px;border-radius:99px;background:#2b2b2b;color:#d0d4db}
+.live.on{background:#12351f;color:#7ee2a2}.live.off{background:#3b2a0a;color:#ffd27a}
+nav{background:var(--bg2);display:flex;gap:2px;overflow-x:auto;padding:0 8px;position:sticky;top:60px;z-index:19}
+nav button{background:none;border:0;color:#c8ccd4;padding:12px 14px;cursor:pointer;white-space:nowrap;border-bottom:3px solid transparent;font-weight:600}
+nav button.on{color:#fff;border-color:var(--blue)}
+main{max-width:1280px;margin:0 auto;padding:16px}
+.band{background:var(--bg);color:#f5f5f5;border-radius:var(--r);padding:14px 16px;margin-bottom:14px}
+.band h3{margin:0 0 8px;font-size:14px;letter-spacing:.04em;text-transform:uppercase;color:#9ec7f3}
+.bgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px}
+.bk{background:#222;border-radius:10px;padding:10px 12px}.bk b{font-size:20px;display:block}.bk span{font-size:12px;color:#b9bec7}
+.band p{margin:10px 0 0;font-size:12px;color:#aab0ba}
+.note{background:var(--blue-50);border:1px solid #bcd7f3;border-radius:10px;padding:10px 12px;margin-bottom:14px;font-size:13px}
+.warn{background:var(--amb-50);border:1px solid #f1d58a;border-radius:10px;padding:8px 12px;margin-bottom:12px;font-size:13px}
+.chip{display:inline-block;font-size:11px;font-weight:700;padding:2px 8px;border-radius:99px;background:#eceff3;color:#475467;white-space:nowrap}
+.c-alta{background:var(--red-50);color:var(--red)}.c-media{background:var(--amb-50);color:var(--amb)}.c-baja{background:#eceff3;color:#667085}.c-na{background:#eceff3;color:#667085}
+.c-ej{background:#ede9fe;color:#5b3fb4}.c-vivo{background:var(--ok-50);color:var(--ok)}.c-mk{background:#fff1cf;color:#8a5a00}
+.c-pend{background:var(--amb-50);color:var(--amb)}.c-ver{background:var(--ok-50);color:var(--ok)}.c-fic{background:var(--blue-50);color:var(--blue-d)}
+h2.sec{font-size:16px;margin:6px 0 10px}h2.sec small{font-weight:400;color:var(--mut);font-size:13px;margin-left:6px}
+.bar{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;align-items:center}
+.bar select,.bar input{padding:7px 10px;border:1px solid var(--line);border-radius:8px;background:#fff;min-width:0}
+.btn{border:1px solid var(--line);background:#fff;border-radius:99px;padding:7px 14px;cursor:pointer;font-weight:600;color:var(--txt)}
+.btn.pri{background:var(--blue);border-color:var(--blue);color:#fff}.btn.pri:hover{background:var(--blue-d)}
+.btn.sm{padding:4px 10px;font-size:13px}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:12px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:var(--r);padding:14px;display:flex;flex-direction:column;gap:8px}
+.card.alta{border-left:4px solid var(--red)}.card.media{border-left:4px solid #e0a31b}.card.baja{border-left:4px solid #c6ccd5}
+.ch{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+.ch .nm{font-weight:800;font-size:16px;margin-right:auto}
+.sub{color:var(--mut);font-size:13px}
+dl.f{display:grid;grid-template-columns:auto 1fr;gap:3px 12px;margin:0;font-size:14px}
+dl.f dt{font-weight:700;color:#475467;font-size:12px;letter-spacing:.03em;padding-top:2px}dl.f dd{margin:0;word-break:break-word}
+dl.f dd.nil{color:#a3a9b3}
+.extra{font-size:13px;background:#f7f8fa;border-radius:8px;padding:8px 10px}
+.extra summary{cursor:pointer;font-weight:600}
+.msg{margin:4px 0;padding:5px 9px;border-radius:8px;max-width:92%}.msg.u{background:#fff;border:1px solid var(--line)}.msg.b{background:var(--blue-50);margin-left:auto}
+.act{display:flex;gap:6px;flex-wrap:wrap;margin-top:2px}
+.kan{display:grid;grid-auto-flow:column;grid-auto-columns:minmax(230px,1fr);gap:10px;overflow-x:auto;padding-bottom:8px}
+.col{background:#e8ebf0;border-radius:var(--r);padding:8px;min-width:230px}
+.col h4{margin:2px 4px 8px;font-size:13px;display:flex;justify-content:space-between}
+.mini{background:#fff;border:1px solid var(--line);border-radius:10px;padding:8px 10px;margin-bottom:8px;font-size:13px}
+.mini b{display:block;font-size:14px}
+table.t{width:100%;border-collapse:collapse;background:#fff;border:1px solid var(--line);border-radius:10px;overflow:hidden;font-size:14px}
+table.t th,table.t td{padding:7px 10px;border-bottom:1px solid #eef0f3;text-align:left}table.t th{background:#f7f8fa;font-size:12px;color:#475467}
+.g2{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:12px}
+.box{background:#fff;border:1px solid var(--line);border-radius:var(--r);padding:12px}
+.box h3{margin:0 0 8px;font-size:14px}
+.hb{display:flex;align-items:center;gap:8px;font-size:13px;margin:4px 0}.hb i{display:block;height:10px;background:var(--blue);border-radius:5px;min-width:3px}.hb span.l{width:130px;flex:none;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin-bottom:12px}
+.kpi{background:#fff;border:1px solid var(--line);border-radius:var(--r);padding:10px 12px}.kpi b{font-size:24px;display:block}.kpi span{font-size:12px;color:var(--mut)}
+.empty{padding:28px;text-align:center;color:var(--mut);background:#fff;border:1px dashed var(--line);border-radius:var(--r)}
+.toast{position:fixed;left:50%;bottom:20px;transform:translateX(-50%);background:#161616;color:#fff;padding:9px 16px;border-radius:99px;font-size:14px;opacity:0;pointer-events:none;transition:opacity .2s;z-index:50;max-width:92vw}
+.toast.on{opacity:1}
+footer{max-width:1280px;margin:0 auto;padding:6px 16px 28px;font-size:12px;color:var(--mut)}
+@media(max-width:600px){main{padding:12px}header{padding:10px 12px}nav{top:56px}.grid{grid-template-columns:1fr}.hb span.l{width:90px}}
+</style>
+</head>
+<body>
+<header>
+  <div class="logo" aria-hidden="true">X</div>
+  <div class="brand">Xaman-Ha Connections<small>ARM de reservas · demo IJV Agency</small></div>
+  <div class="hsp"></div>
+  <span class="live" id="live">Cargando…</span>
+  <button class="btn sm" id="bRef">Actualizar</button>
+  <button class="btn sm" id="bCsv">Exportar CSV</button>
+</header>
+<nav id="nav" aria-label="Vistas"></nav>
+<main id="main"></main>
+<footer>Demo con datos ficticios marcados EJEMPLO. Los precios de ejemplo no son tarifas reales. Los puntos marcados PROPUESTA o MAQUETA aún no están conectados a sistemas reales.</footer>
+<div class="toast" id="toast" role="status"></div>
+<script>
+(function(){
+'use strict';
+/* ====== AJUSTES DEL PARSER (editar aquí: 1 línea por abreviatura) ====== */
+var ETIQUETAS={
+  svc:['svc','servicio','service','tipo'],
+  det:['det','detalle','tour'],
+  dest:['dest','destino'],
+  fecha:['fecha','date'],
+  pickup:['pickup','pick up','hora pickup','hora'],
+  pax:['pax','viajeros'],
+  hotel:['hotel','hospedaje'],
+  room:['room','hab','habitacion'],
+  vuelo:['vuelo','flight'],
+  precio:['precio','price'],
+  concierge:['concierge'],
+  lang:['lang','idioma'],
+  cal:['calificacion','prioridad']
+};
+var ENDPOINT='https://meta.ijvagency.com/webhook/xamanha-demo-panel';
+var Q=new URLSearchParams(location.search);
+var MOCK=Q.get('mock')==='1',PRUEBAS=Q.get('incluir_pruebas')==='1';
+var LS_KEY='xamanha_arm_v1';
+var D='—';
+var MESES=['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'];
+var VISTAS=[{id:'atender',n:'Atender ahora'},{id:'reservas',n:'Reservas'},{id:'pipeline',n:'Pipeline'},{id:'hoteles',n:'Hoteles y concierges'},{id:'seguimientos',n:'Seguimientos'},{id:'gerencia',n:'Gerencia'}];
+var ETAPAS=[{id:'nuevo',n:'Nuevo'},{id:'ficha',n:'Ficha completa'},{id:'disp',n:'Disponibilidad por confirmar (proveedor)'},{id:'link',n:'Link de pago enviado'},{id:'pagado',n:'Pagado'},{id:'operado',n:'Operado'},{id:'perdido',n:'Perdido'}];
+var EIDX={};ETAPAS.forEach(function(e,i){EIDX[e.id]=i;});
+var PRIO_RANK={Alta:0,Media:1,Baja:2,'Sin prioridad':3};
+var DESTS={RM:'Riviera Maya',LC:'Los Cabos',CDMX:'CDMX'};
+var SVCS=['Tour','Transfer','Embarcación','Ceremonia','Transportación'];
+var CANALES=['WhatsApp','Web','Grupo hotel'];
+
+/* ====== Utilidades ====== */
+function $(s,r){return (r||document).querySelector(s);}
+function esc(s){return String(s==null?'':s).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];});}
+function norm(s){return String(s||'').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'');}
+function clean(s){return String(s==null?'':s).replace(/\s+/g,' ').trim();}
+function nil(v){v=clean(v);return !v||/^(—|-|sin dato|n\/a|por definir|a cotizar)$/i.test(v);}
+function vv(v){v=clean(v);return (!v||v==='—'||v==='-')?D:v.slice(0,90);}
+function fmtFecha(iso){var m=String(iso||'').match(/^(\d{4})-(\d{2})-(\d{2})/);return m?(+m[3])+' '+MESES[+m[2]-1]+' '+m[1]:(clean(iso)||D);}
+function dayMs(iso){var m=String(iso||'').match(/^(\d{4})-(\d{2})-(\d{2})/);return m?Date.UTC(+m[1],+m[2]-1,+m[3]):NaN;}
+function hace(ms){var m=Math.round((Date.now()-ms)/60000);if(m<1)return 'ahora';if(m<60)return 'hace '+m+' min';var h=Math.round(m/60);if(h<48)return 'hace '+h+' h';return 'hace '+Math.round(h/24)+' d';}
+function toast(h){var t=$('#toast');t.innerHTML=h;t.classList.add('on');clearTimeout(toast.t);toast.t=setTimeout(function(){t.classList.remove('on');},2600);}
+function ls(get,set){try{if(set!==undefined){localStorage.setItem(LS_KEY,JSON.stringify(set));return;}return JSON.parse(localStorage.getItem(LS_KEY)||'{}');}catch(e){return get?{}:undefined;}}
+function sinSecretos(s){return String(s||'').replace(/\b\d{12,}\b/g,'[dato oculto]');}
+
+/* ====== Parser del context_summary (dos formatos) ====== */
+var ETIQ_IDX={};Object.keys(ETIQUETAS).forEach(function(k){ETIQUETAS[k].forEach(function(a){ETIQ_IDX[norm(a)]=k;});});
+function parseSummary(txt){
+  var t=String(txt||''),bar=t.indexOf('|'),head=bar>-1?t.slice(0,bar):t,msg=bar>-1?t.slice(bar+1):'';
+  var o={},notas=[];
+  head.split(';').forEach(function(seg){
+    var s=seg.trim();if(!s)return;
+    if(!o.cal&&/^(alta|media|baja)\.?$/i.test(s)){o.cal=s;return;}
+    var m=s.match(/^([^:]{2,24}?)\s*:\s*([\s\S]*)$/);
+    var k=m?ETIQ_IDX[norm(m[1]).replace(/[^a-z ]/g,'').trim()]:null;
+    if(k){
+      if(k==='cal'){var mm=m[2].match(/alta|media|baja/i);o.cal=mm?mm[0]:'';}
+      else o[k]=clean(m[2]);
+    }else notas.push(s.replace(/^nota\s*:\s*/i,''));
+  });
+  o.nota=notas.join('. ').trim();o.msg=clean(msg);return o;
+}
+function normPrio(c){var n=norm(c);if(n.indexOf('alt')===0)return 'Alta';if(n.indexOf('med')===0)return 'Media';if(n.indexOf('baj')===0)return 'Baja';return 'Sin prioridad';}
+function normSvc(v){var n=norm(v);if(!n)return D;if(n.indexOf('transf')>-1)return 'Transfer';if(n.indexOf('embarc')>-1||n.indexOf('yate')>-1||n.indexOf('boat')>-1)return 'Embarcación';if(n.indexOf('ceremon')>-1)return 'Ceremonia';if(n.indexOf('transport')>-1)return 'Transportación';if(n.indexOf('tour')>-1)return 'Tour';return clean(v).slice(0,30);}
+function normDest(v){var n=norm(v);if(n==='rm'||n.indexOf('riviera')>-1||n.indexOf('tulum')>-1||n.indexOf('cancun')>-1||n.indexOf('playa')>-1)return 'RM';if(n==='lc'||n.indexOf('cabo')>-1)return 'LC';if(n.indexOf('cdmx')>-1||n.indexOf('mexico city')>-1||n.indexOf('ciudad de mexico')>-1)return 'CDMX';return '';}
+function normLang(v){var n=norm(v);return n.indexOf('es')===0?'ES':n.indexOf('en')===0?'EN':D;}
+function canalDe(sid){sid=String(sid||'');if(/^grp_demo_/i.test(sid))return 'Grupo hotel';if(/^wa_demo_/i.test(sid))return 'WhatsApp';return 'Web';}
+
+/* ====== Datos de EJEMPLO (ficticios) ====== */
+/* [nombre, canal, prio, svc, det, dest, díasHastaServicio, pickup, pax, hotel, room, vuelo, precio, concierge, lang, nota, etapa, horasAtrás, mensajeDelViajero, cruzada] */
+var EJ=[
+['Emily Carter','WhatsApp','Alta','Tour','Chichén Itzá private tour','RM',3,'07:30','2A+2K (8,11)','Hotel Ejemplo Tulum Beach','—','—','US$ 420 (ej.)','—','EN','quiere cenote al final','disp',3,'Hi! We are 4 and want a private Chichen Itza day on Saturday, with a cenote stop.',0],
+['Jacob Thompson','Web','Alta','Transfer','Transfer CUN → Tulum','RM',2,'14:10','2A','Airbnb Aldea Zamá (ej.)','—','Delta DL 482','US$ 120 (ej.)','—','EN','llega 13:25','ficha',1,'Need a private transfer from Cancun airport to Tulum, flight DL 482 lands 1:25 pm.',1],
+['Sophie Laurent','WhatsApp','Alta','Embarcación','Yate privado 4 h Isla Mujeres','RM',5,'09:00','6A','Hotel Ejemplo Playa Centro','—','—','a cotizar','—','EN','cumpleaños, quiere bebidas','disp',6,'Looking for a private yacht for 6 people for 4 hours, a birthday. Is there availability on the 30th?',0],
+['María Fernanda Ruiz','WhatsApp','Alta','Tour','Cenotes + Tulum ruins','RM',1,'08:00','2A','Hotel Ejemplo Tulum Jungle','—','—','US$ 280 (ej.)','—','ES','combo, mañana mismo','link',2,'Hola, somos dos y queremos las ruinas de Tulum y un cenote mañana. ¿Se puede combinar?',0],
+['Daniel Wright','Web','Media','Tour','Isla Mujeres catamarán','RM',20,'por definir','2A+1K (5)','Hotel Ejemplo Cancún Zona Hotelera','—','—','US$ 95 pp (ej.)','—','EN','compara con otra empresa','ficha',9,'How much is the catamaran to Isla Mujeres? We might go next month.',0],
+['Chloé Martin','Web','Alta','Ceremonia','Ceremonia de cacao','RM',6,'17:00','2A','Airbnb Región 15 Tulum (ej.)','—','—','a cotizar','—','EN','ceremonia de compromiso','disp',4,'We want a cacao ceremony for our engagement, next Friday evening if possible.',0],
+['Robert Miller','WhatsApp','Alta','Tour','Arco de Cabo San Lucas','LC',4,'10:00','4A','Resort Ejemplo Cabo San Lucas','—','—','US$ 210 (ej.)','—','EN','','pagado',30,'4 adults, want to see the Arch and snorkel at Santa Maria bay. Thursday?',0],
+['Ashley Brooks','WhatsApp','Media','Transfer','Transfer SJD → Cabo San Lucas','LC',12,'16:40','3A','Resort Ejemplo Cabo San Lucas','—','Alaska AS 1291','US$ 95 (ej.)','—','EN','','ficha',14,'Do you do airport transfers from SJD? Arriving on the 7th.',0],
+['Liam O’Connor','Web','Alta','Embarcación','Yate privado 4 h Los Cabos','LC',9,'09:30','8A','Villa Ejemplo Pedregal','—','—','a cotizar','—','EN','despedida de soltero','disp',5,'Private boat for 8 guys, 4 hours, Cabo, on the 4th. Food and drinks included?',0],
+['Hannah Schmidt','Web','Media','Tour','Teotihuacán','CDMX',15,'por definir','2A','Hotel Ejemplo Roma Norte','—','—','US$ 160 (ej.)','—','EN','','nuevo',3,'Is Teotihuacan private tour possible? Maybe the 10th.',0],
+['Carlos Mendoza','WhatsApp','Alta','Tour','Xochimilco trajinera + Coyoacán','CDMX',2,'10:30','5A+1K (9)','Hotel Ejemplo Centro Histórico','—','—','US$ 230 (ej.)','—','ES','familia, cumpleaños','link',7,'Hola, somos 6 y queremos Xochimilco este sábado, de preferencia con comida.',0],
+['Jessica Nguyen','WhatsApp','Alta','Transfer','Transfer AICM → Polanco','CDMX',3,'21:15','2A','Hotel Ejemplo Polanco','—','United UA 1124','US$ 55 (ej.)','—','EN','','ficha',2,'Can you pick us up at Mexico City airport? UA 1124, lands 9:15 pm Monday.',1],
+['Oliver Bennett','Web','Baja','Tour','Chichén Itzá','RM',0,'por definir','—','—','—','—','a cotizar','—','EN','solo preguntó precio','perdido',70,'price?',0],
+['Isabella Rossi','Web','Media','Tour','Tulum ruins + cenotes','RM',18,'por definir','2A','Hotel Ejemplo Tulum Beach','—','—','US$ 280 (ej.)','—','EN','','ficha',22,'Hello, we are in Tulum from the 20th. Can you suggest a private tour with ruins and a cenote?',0],
+['Mateo Gómez','WhatsApp','Media','Tour','Chichén Itzá','RM',25,'por definir','2A+2K','Hotel Ejemplo Playa del Carmen','—','—','US$ 420 (ej.)','—','ES','','nuevo',10,'Buenas, ¿tienen Chichén Itzá privado para diciembre? Somos 4.',0],
+['William Hughes','Web','Alta','Embarcación','Lancha privada 6 h Isla Mujeres','RM',7,'08:30','10A','Hotel Ejemplo Cancún Zona Hotelera','—','—','a cotizar','—','EN','grupo de amigos','disp',8,'10 of us, private boat 6 hours, Isla Mujeres, next Wednesday. Can you confirm?',0],
+['Camille Dubois','WhatsApp','Alta','Tour','Cenotes + Tulum ruins','RM',2,'09:00','2A','Hotel Ejemplo Tulum Jungle','—','—','US$ 280 (ej.)','—','EN','','operado',60,'Hi, we booked for yesterday; thank you!',0],
+['Noah Anderson','Web','Media','Transportación','Transportación Playa del Carmen → Chichén Itzá','RM',14,'por definir','4A','Airbnb Playacar (ej.)','—','—','a cotizar','—','EN','','ficha',15,'Need a driver for a full day to Chichen Itza and back to Playa.',0],
+['Grace Kim','WhatsApp','Baja','Tour','Cenotes','RM',0,'por definir','—','—','—','—','a cotizar','—','EN','curiosa','perdido',90,'Do you have cheap tours?',0],
+['Concierge Ana · Hotel Ejemplo Tulum Beach','Grupo hotel','Alta','Tour','Cenotes + Tulum ruins','RM',1,'09:00','2A','Hotel Ejemplo Tulum Beach','214','—','US$ 280 (ej.)','Ana · Hotel Ejemplo Tulum Beach','ES','huésped en el lobby','disp',1,'¿Tienen disponibilidad mañana 9:00 para ruinas y cenote? Dos huéspedes, hab. 214.',0],
+['Concierge Luis · Hotel Ejemplo Tulum Beach','Grupo hotel','Alta','Embarcación','Yate privado 4 h Isla Mujeres','RM',4,'09:30','4A','Hotel Ejemplo Tulum Beach','308','—','a cotizar','Luis · Hotel Ejemplo Tulum Beach','ES','pide recomendación','disp',3,'Un huésped quiere yate el jueves, ¿qué nos recomiendan para 4 personas?',0],
+['Concierge Paola · Resort Ejemplo Playa Centro','Grupo hotel','Media','Ceremonia','Ceremonia de cacao','RM',6,'17:00','2A','Resort Ejemplo Playa Centro','112','—','a cotizar','Paola · Resort Ejemplo Playa Centro','ES','','ficha',12,'¿Hacen ceremonia de cacao? Pareja en luna de miel, el viernes.',0],
+['Concierge Marco · Resort Ejemplo Playa Centro','Grupo hotel','Alta','Transfer','Transfer CUN → Playa del Carmen','RM',2,'12:30','3A+1K (7)','Resort Ejemplo Playa Centro','420','American AA 1650','US$ 85 (ej.)','Marco · Resort Ejemplo Playa Centro','EN','','link',2,'Need a transfer CUN to our hotel, AA 1650, family of 4, Saturday 12:30.',1],
+['Concierge Elena · Resort Ejemplo Cabo San Lucas','Grupo hotel','Alta','Tour','Arco de Cabo San Lucas','LC',1,'10:00','2A','Resort Ejemplo Cabo San Lucas','1507','—','US$ 210 (ej.)','Elena · Resort Ejemplo Cabo San Lucas','EN','','disp',2,'Availability tomorrow 10 am for the Arch tour? 2 guests, room 1507.',0],
+['Concierge Jorge · Hotel Ejemplo Polanco','Grupo hotel','Media','Tour','Teotihuacán','CDMX',5,'08:00','2A','Hotel Ejemplo Polanco','702','—','US$ 160 (ej.)','Jorge · Hotel Ejemplo Polanco','ES','','ficha',20,'Teotihuacán el martes, pareja, ¿qué horario nos recomiendan?',0],
+['Tyler Jackson','WhatsApp','Alta','Tour','Chichén Itzá private tour','RM',4,'07:00','2A+1K (12)','Hotel Ejemplo Cancún Zona Hotelera','—','—','US$ 420 (ej.)','—','EN','agregar comida','link',11,'Can you add lunch and drinks to the Chichen Itza tour? 3 of us.',0],
+['Valentina Cruz','Web','Media','Tour','Isla Mujeres catamarán','RM',16,'por definir','2A','Hotel Ejemplo Cancún Zona Hotelera','—','—','US$ 95 pp (ej.)','—','ES','','ficha',30,'Hola, ¿el catamarán a Isla Mujeres incluye barra libre?',0],
+['Megan Foster','Web','Alta','Transfer','Transfer SJD → Cabo San Lucas','LC',6,'11:20','2A','Resort Ejemplo Cabo San Lucas','—','Southwest WN 770','US$ 95 (ej.)','—','EN','','pagado',40,'Booking a transfer from SJD for the 8th, flight WN 770.',1],
+['Lucas Fernandes','WhatsApp','Media','Tour','Tulum ruins + cenotes','RM',11,'por definir','2A+2K (4,7)','Hotel Ejemplo Tulum Jungle','—','—','US$ 280 (ej.)','—','EN','niños pequeños','nuevo',5,'Traveling with kids 4 and 7, which tour do you recommend in Tulum?',0]
+];
+var CONVO={EN:'Thanks! I noted your request. The team confirms availability and sends the payment link.',ES:'¡Gracias! Anoté tu solicitud. El equipo confirma disponibilidad y te manda el link de pago.'};
+function buildMock(){
+  var now=Date.now(),today=new Date();today=Date.UTC(today.getFullYear(),today.getMonth(),today.getDate());
+  return EJ.map(function(r,i){
+    var f=new Date(today+r[6]*86400000),iso=f.getUTCFullYear()+'-'+('0'+(f.getUTCMonth()+1)).slice(-2)+'-'+('0'+f.getUTCDate()).slice(-2);
+    var sid=(r[1]==='Grupo hotel'?'grp_demo_ej':r[1]==='WhatsApp'?'wa_demo_ej':'web_ej')+(i+1);
+    var est=r[16];
+    return {id:sid,sid:sid,origen:'ejemplo',nombre:r[0],tel:'',prio:r[2],svc:r[3],det:r[4],dest:r[5],fecha:r[2]==='Baja'&&r[16]==='perdido'?D:iso,pickup:r[7],pax:r[8],hotel:r[9],room:r[10],vuelo:r[11],precio:r[12],concierge:r[13],lang:r[14],nota:r[15],msg:r[18],canal:r[1],estado:est==='disp'?'pending':'draft',base:est,creado:now-r[17]*3600000,cruzada:!!r[19],extracto:[['u',r[18]],['b',CONVO[r[14]]||CONVO.EN]],dummy:1};
+  });
+}
+function etapaBase(est,prio,hasData){
+  if(est==='rejected')return 'perdido';
+  if(est==='pending'||est==='verified')return 'disp';
+  if(prio==='Alta'||prio==='Media')return 'ficha';
+  if(prio==='Baja')return 'perdido';
+  return 'nuevo';
+}
+function normLive(r){
+  if(!r||typeof r!=='object')return null;
+  var sid=clean(r.session_id);
+  if(!PRUEBAS&&/^(ijv-smoke|eval_|ensayo_|qa-|panel-check|smoke-demo|sim-)/i.test(sid))return null;
+  var id=sid||clean(r.lead_id);if(!id)return null;
+  var P=parseSummary(sinSecretos(clean(r.resumen)).slice(0,900));
+  var raw=clean(r.estado).toLowerCase();
+  var est={draft:'draft',borrador:'draft',pending:'pending',alerta_enviada:'pending',verified:'verified',confirmada:'verified',rejected:'rejected',rechazada:'rejected'}[raw]||'draft';
+  var prio=normPrio(r.calificacion||P.cal);
+  var t=Date.parse(r.creado);
+  return {id:id,sid:id,origen:'vivo',nombre:vv(r.nombre),tel:clean(r.telefono).replace(/[^\d+]/g,'').slice(0,16),prio:prio,svc:normSvc(P.svc),det:vv(P.det),dest:normDest(P.dest),
+    fecha:P.fecha||D,pickup:vv(P.pickup),pax:vv(P.pax),hotel:vv(P.hotel),room:vv(P.room),vuelo:vv(P.vuelo),precio:vv(P.precio),concierge:vv(P.concierge),lang:normLang(P.lang),
+    nota:P.nota||'',msg:P.msg||'',canal:canalDe(sid),estado:est,base:etapaBase(est),creado:isNaN(t)?Date.now():t,cruzada:false,
+    extracto:P.msg?[['u',P.msg]]:[]};
+}
+
+/* ====== Estado ====== */
+var S={live:[],liveOk:null,all:[],view:'atender',f:{q:'',dest:'',svc:'',canal:'',prio:''},seen:null,ed:ls(true)};
+function saveEd(){ls(false,S.ed);}
+function edOf(id){return S.ed[id]||(S.ed[id]={});}
+function build(){
+  var src=MOCK?[]:S.live,list=src.concat(buildMock());
+  S.all=list.map(function(l){
+    var e=S.ed[l.id]||{};
+    l.etapa=e.etapa||l.base;
+    l.toques=e.toques||0;l.toqueAt=e.toqueAt||0;
+    l.nota2=e.nota!=null?e.nota:l.nota;
+    l.tipo=(l.svc==='Transfer'||(!nil(l.vuelo)&&l.vuelo!==D))?'transfer':'tour';
+    return l;
+  });
+}
+function pull(){
+  if(MOCK){S.liveOk=null;build();render();return Promise.resolve();}
+  var ctl=('AbortController' in window)?new AbortController():null,t=setTimeout(function(){if(ctl)ctl.abort();},8000);
+  return fetch(ENDPOINT+(PRUEBAS?'?incluir_pruebas=1':''),{headers:{'Accept':'application/json'},cache:'no-store',signal:ctl?ctl.signal:undefined})
+    .then(function(r){clearTimeout(t);if(!r.ok)throw new Error('HTTP '+r.status);return r.json();})
+    .then(function(data){
+      if(!data||data.ok!==true||!Array.isArray(data.leads))throw new Error('formato');
+      var list=data.leads.map(function(r){try{return normLive(r);}catch(e){return null;}}).filter(Boolean),ids={};
+      list.forEach(function(l){ids[l.id]=1;});
+      if(S.seen)list.forEach(function(l){if(!S.seen[l.id])toast('Nueva solicitud <b>EN VIVO</b>: '+esc(l.nombre));});
+      S.seen=ids;S.live=list;S.liveOk=true;
+    }).catch(function(){S.liveOk=false;}).then(function(){build();render();});
+}
+
+/* ====== Filtros ====== */
+function filt(rows){
+  var f=S.f,q=norm(f.q);
+  return rows.filter(function(l){
+    if(f.dest&&l.dest!==f.dest)return false;if(f.svc&&l.svc!==f.svc)return false;if(f.canal&&l.canal!==f.canal)return false;if(f.prio&&l.prio!==f.prio)return false;
+    if(q&&norm([l.nombre,l.det,l.hotel,l.concierge,l.svc,l.nota2].join(' ')).indexOf(q)<0)return false;
+    return true;
+  });
+}
+function opts(arr,cur,lbl){return '<option value="">'+lbl+'</option>'+arr.map(function(a){var v=Array.isArray(a)?a[0]:a,n=Array.isArray(a)?a[1]:a;return '<option value="'+esc(v)+'"'+(cur===v?' selected':'')+'>'+esc(n)+'</option>';}).join('');}
+function filtersBar(){
+  var f=S.f;
+  return '<div class="bar"><input id="fq" type="search" placeholder="Buscar nombre, hotel o servicio" value="'+esc(f.q)+'">'
+   +'<select data-f="dest">'+opts([['RM','Riviera Maya'],['LC','Los Cabos'],['CDMX','CDMX']],f.dest,'Destino: todos')+'</select>'
+   +'<select data-f="svc">'+opts(SVCS,f.svc,'Servicio: todos')+'</select>'
+   +'<select data-f="canal">'+opts(CANALES,f.canal,'Canal: todos')+'</select>'
+   +'<select data-f="prio">'+opts(['Alta','Media','Baja'],f.prio,'Prioridad: todas')+'</select></div>';
+}
+function empty(t){return '<div class="empty">'+esc(t)+'</div>';}
+
+/* ====== Ficha ====== */
+function prioChip(p){return '<span class="chip c-'+(p==='Alta'?'alta':p==='Media'?'media':p==='Baja'?'baja':'na')+'">'+esc(p==='Sin prioridad'?p:'Prioridad '+p)+'</span>';}
+function estChip(l){return l.estado==='verified'?'<span class="chip c-ver">Disponibilidad confirmada</span>':l.estado==='pending'?'<span class="chip c-pend">Reserva por confirmar</span>':l.estado==='rejected'?'<span class="chip">Perdido</span>':'<span class="chip c-fic">Ficha completa</span>';}
+function dd(v){var s=nil(v)&&String(v).trim()===''?D:(clean(v)||D);return '<dd'+(s===D?' class="nil"':'')+'>'+esc(s)+'</dd>';}
+function campos(l){
+  var tr=l.tipo==='transfer';
+  var rows=[['NAME',l.nombre],['DATE',l.fecha===D?D:fmtFecha(l.fecha)],['SERVICE',l.det],['PICK UP TIME',l.pickup],['ADULTS/KIDS (PAX)',l.pax],['HOTEL',l.hotel]];
+  if(tr){var av=splitVuelo(l.vuelo);rows.push(['FLIGHT',av.n],['AIRLINE',av.a],['WHATSAPP',l.tel||(l.origen==='ejemplo'?'(ficticio)':D)]);}
+  else rows.push(['ROOM',l.room]);
+  rows.push(['PRICE',l.precio],['CONCIERGE',l.concierge]);
+  return rows;
+}
+function splitVuelo(v){v=clean(v);if(!v||v===D)return {a:D,n:D};var m=v.match(/^(.*?)\s*([A-Z0-9]{2}\s?\d{2,4})$/);return m&&m[1]?{a:m[1],n:m[2]}:{a:v,n:D};}
+function cardHTML(l){
+  var dest=l.dest?DESTS[l.dest]:D;
+  var h='<article class="card '+(l.prio==='Alta'?'alta':l.prio==='Media'?'media':'baja')+'" data-id="'+esc(l.id)+'"><div class="ch"><span class="nm">'+esc(l.nombre)+'</span>'+prioChip(l.prio)+estChip(l)+(l.origen==='ejemplo'?'<span class="chip c-ej">EJEMPLO</span>':'<span class="chip c-vivo">EN VIVO</span>')+'</div>';
+  h+='<div class="sub">'+esc(l.canal)+' · '+esc(l.svc)+' · '+esc(dest)+' · idioma '+esc(l.lang)+' · '+hace(l.creado)+' · etapa: '+esc(ETAPAS[EIDX[l.etapa]].n)+'</div><dl class="f">';
+  campos(l).forEach(function(r){h+='<dt>'+r[0]+'</dt>'+dd(r[1]);});
+  h+='</dl><div class="sub"><b>Nota:</b> '+esc(l.nota2||D)+'</div>';
+  if(l.extracto&&l.extracto.length)h+='<details class="extra"><summary>Extracto de la conversación</summary>'+l.extracto.map(function(m){return '<div class="msg '+m[0]+'">'+esc(m[1])+'</div>';}).join('')+'</details>';
+  h+='<div class="act"><button class="btn sm pri" data-a="copy">Copiar en formato de reserva</button><button class="btn sm" data-a="send">Enviar a sistema de reservas <span class="chip c-mk">PROPUESTA</span></button>'
+   +'<select class="btn sm" data-a="etapa" aria-label="Mover a etapa">'+ETAPAS.map(function(e){return '<option value="'+e.id+'"'+(e.id===l.etapa?' selected':'')+'>'+esc(e.n)+'</option>';}).join('')+'</select></div></article>';
+  return h;
+}
+function textoReserva(l){
+  var tr=l.tipo==='transfer',g=function(v){v=clean(v);return (!v||v===D)?'':v;};
+  var L=['¿Me podrías apoyar con los siguientes Datos de RESERVA?','','* NAME: '+g(l.nombre),'* DATE: '+(l.fecha===D?'':fmtFecha(l.fecha)),'* SERVICE: '+g(l.det),'* PICK UP TIME: '+g(l.pickup),'* ADULTS/KIDS:  '+(g(l.pax)?g(l.pax)+' PAX':'PAX'),'* HOTEL: '+g(l.hotel)];
+  if(tr){var av=splitVuelo(l.vuelo);L.push('* FLIGHT: '+g(av.n),'* AIRLINE: '+g(av.a),'* WHATSAPP: '+g(l.tel));}
+  else L.push('* ROOM: '+g(l.room));
+  L.push('* PRICE: '+g(l.precio),'* CONCIERGE: '+g(l.concierge));
+  return L.join('\n');
+}
+function copiar(txt){
+  if(navigator.clipboard&&navigator.clipboard.writeText)return navigator.clipboard.writeText(txt);
+  return new Promise(function(res,rej){var a=document.createElement('textarea');a.value=txt;a.style.position='fixed';a.style.opacity='0';document.body.appendChild(a);a.select();try{document.execCommand('copy')?res():rej();}catch(e){rej();}document.body.removeChild(a);});
+}
+
+/* ====== Vistas ====== */
+function byFecha(a,b){var x=dayMs(a.fecha),y=dayMs(b.fecha);x=isNaN(x)?9e15:x;y=isNaN(y)?9e15:y;return x-y||b.creado-a.creado;}
+function activos(l){return l.etapa!=='perdido'&&l.etapa!=='operado';}
+function vAtender(){
+  var rows=filt(S.all).filter(function(l){return l.prio==='Alta'&&activos(l)&&l.etapa!=='pagado';}).sort(byFecha);
+  return filtersBar()+'<h2 class="sec">Atender ahora <small>'+rows.length+' · prioridad Alta, por fecha de servicio más cercana</small></h2>'+(rows.length?'<div class="grid">'+rows.map(cardHTML).join('')+'</div>':empty('No hay solicitudes de prioridad Alta con estos filtros.'));
+}
+function vReservas(){
+  var rows=filt(S.all).filter(function(l){return l.etapa!=='perdido'&&l.etapa!=='nuevo';}).sort(function(a,b){return b.creado-a.creado;});
+  return filtersBar()+'<div class="note"><b>Opción A:</b> este mismo flujo escribe en tu Kommo <span class="chip c-mk">PROPUESTA</span> · <b>Opción B:</b> este panel ES tu CRM (ARM). Con cualquiera de las dos, tu equipo ya no captura a mano: la ficha llega con los campos de tu formulario.</div><h2 class="sec">Reservas <small>'+rows.length+' fichas · campos en el orden de tu formulario</small></h2>'+(rows.length?'<div class="grid">'+rows.map(cardHTML).join('')+'</div>':empty('Aún no hay fichas con estos filtros.'));
+}
+function vPipeline(){
+  var rows=filt(S.all),h=filtersBar()+'<div class="note">Hasta «Disponibilidad por confirmar» la etapa la mueve el agente; los pasos siguientes son manuales en esta demo <span class="chip c-mk">MAQUETA</span>. Cambia la etapa desde el menú de cada ficha (en Reservas).</div><div class="kan">';
+  ETAPAS.forEach(function(e){
+    var c=rows.filter(function(l){return l.etapa===e.id;}).sort(byFecha);
+    h+='<div class="col"><h4><span>'+esc(e.n)+'</span><span>'+c.length+'</span></h4>'+c.map(function(l){
+      return '<div class="mini"><b>'+esc(l.nombre)+'</b>'+esc(l.det)+'<br><span class="sub">'+(l.fecha===D?D:fmtFecha(l.fecha))+' · '+esc(l.pax)+'</span><br>'+prioChip(l.prio)+(l.origen==='ejemplo'?' <span class="chip c-ej">EJEMPLO</span>':'')+'</div>';
+    }).join('')+'</div>';
+  });
+  return h+'</div>';
+}
+function vHoteles(){
+  var rows=filt(S.all).filter(function(l){return l.canal==='Grupo hotel'||(!nil(l.concierge)&&l.concierge!==D);});
+  var h=filtersBar()+'<div class="note">Canal 2: grupos de WhatsApp con hoteles y concierges. En esta demo es una <b>simulación</b> con hoteles ficticios <span class="chip c-mk">PROPUESTA</span>: el agente responde al concierge y deja la solicitud por confirmar.</div>';
+  if(!rows.length)return h+empty('Sin solicitudes de hoteles con estos filtros.');
+  var byH={},byC={};
+  rows.forEach(function(l){var hk=l.hotel,ck=l.concierge;if(hk&&hk!==D)(byH[hk]=byH[hk]||[]).push(l);if(ck&&ck!==D)(byC[ck]=byC[ck]||[]).push(l);});
+  function top(a){var m={};a.forEach(function(l){var k=l.svc;m[k]=(m[k]||0)+1;});return Object.keys(m).sort(function(x,y){return m[y]-m[x];}).slice(0,3).map(function(k){return k+' ('+m[k]+')';}).join(', ');}
+  var hk=Object.keys(byH).sort(function(a,b){return byH[b].length-byH[a].length;});
+  h+='<div class="g2"><div class="box"><h3>Solicitudes por hotel</h3><table class="t"><tr><th>Hotel</th><th>Solic.</th><th>Alta</th><th>Servicios más pedidos</th></tr>'+hk.map(function(k){var a=byH[k];return '<tr><td>'+esc(k)+'</td><td>'+a.length+'</td><td>'+a.filter(function(l){return l.prio==='Alta';}).length+'</td><td>'+esc(top(a))+'</td></tr>';}).join('')+'</table></div>';
+  var ck=Object.keys(byC).sort(function(a,b){return byC[b].length-byC[a].length;});
+  h+='<div class="box"><h3>Solicitudes por concierge</h3><table class="t"><tr><th>Concierge</th><th>Solic.</th><th>Última</th></tr>'+ck.map(function(k){var a=byC[k];return '<tr><td>'+esc(k)+'</td><td>'+a.length+'</td><td>'+hace(Math.max.apply(null,a.map(function(l){return l.creado;})))+'</td></tr>';}).join('')+'</table></div></div>';
+  h+='<h2 class="sec" style="margin-top:16px">Solicitudes recientes del canal <small>'+rows.length+'</small></h2><div class="grid">'+rows.sort(byFecha).slice(0,12).map(cardHTML).join('')+'</div>';
+  return h;
+}
+var CAD=[['Toque 1','~24 h'],['Toque 2','~72 h'],['Toque 3 (final)','~7 días']];
+function vSeg(){
+  var rows=filt(S.all).filter(function(l){return (l.etapa==='disp'||l.etapa==='link'||l.etapa==='ficha')&&l.prio!=='Baja';}).sort(function(a,b){return a.creado-b.creado;});
+  var h=filtersBar()+'<div class="note"><span class="chip c-mk">MAQUETA</span> Cotizaciones sin respuesta: secuencia corta y espaciada, <b>máximo 3 toques</b> ('+CAD.map(function(c){return c[0]+' '+c[1];}).join(' · ')+') y luego se detiene, para cuidar la reputación del número. No envía nada real.</div><h2 class="sec">Seguimientos <small>'+rows.length+'</small></h2>';
+  if(!rows.length)return h+empty('No hay cotizaciones abiertas.');
+  return h+'<div class="grid">'+rows.map(function(l){
+    var n=l.toques,fin=n>=3;
+    return '<div class="card"><div class="ch"><span class="nm">'+esc(l.nombre)+'</span>'+prioChip(l.prio)+(l.origen==='ejemplo'?'<span class="chip c-ej">EJEMPLO</span>':'')+'</div><div class="sub">'+esc(l.det)+' · '+(l.fecha===D?D:fmtFecha(l.fecha))+' · solicitud '+hace(l.creado)+'</div>'
+     +'<div>Toques enviados: <b>'+n+' de 3</b> · '+(fin?'secuencia terminada, sin más mensajes':'siguiente: '+CAD[n][0]+' ('+CAD[n][1]+')')+'</div>'
+     +'<div class="act"><button class="btn sm" data-id="'+esc(l.id)+'" data-a="toque"'+(fin?' disabled':'')+'>Marcar toque enviado</button><button class="btn sm" data-id="'+esc(l.id)+'" data-a="perdido">Cerrar como perdido</button></div></div>';
+  }).join('')+'</div>';
+}
+function cuenta(rows,key,keys){return keys.map(function(k){return [k,rows.filter(function(l){return l[key]===k;}).length];});}
+function bars(pairs,lbl){var mx=Math.max.apply(null,pairs.map(function(p){return p[1];}).concat([1]));return pairs.map(function(p){return '<div class="hb"><span class="l">'+esc(lbl?lbl(p[0]):p[0])+'</span><i style="width:'+Math.round(p[1]/mx*60)+'%"></i><b>'+p[1]+'</b></div>';}).join('');}
+function vGerencia(){
+  var rows=filt(S.all),n=rows.length;
+  var cr=rows.filter(function(l){return l.svc==='Transfer'&&l.cruzada;}).length;
+  var h=filtersBar()+'<div class="kpis"><div class="kpi"><b>'+n+'</b><span>solicitudes</span></div><div class="kpi"><b>'+rows.filter(function(l){return l.prio==='Alta';}).length+'</b><span>prioridad Alta</span></div><div class="kpi"><b>'+rows.filter(function(l){return l.etapa==='disp';}).length+'</b><span>por confirmar con proveedor</span></div><div class="kpi"><b>'+rows.filter(function(l){return l.etapa==='pagado'||l.etapa==='operado';}).length+'</b><span>pagadas u operadas</span></div><div class="kpi"><b>'+cr+'</b><span>transfers como venta cruzada</span></div></div>';
+  h+='<div class="g2"><div class="box"><h3>Por destino</h3>'+bars(cuenta(rows,'dest',['RM','LC','CDMX']),function(k){return DESTS[k];})+'</div>'
+   +'<div class="box"><h3>Por servicio</h3>'+bars(cuenta(rows,'svc',SVCS))+'</div>'
+   +'<div class="box"><h3>Por canal</h3>'+bars(cuenta(rows,'canal',CANALES))+'</div>'
+   +'<div class="box"><h3>Leads por prioridad</h3>'+bars(cuenta(rows,'prio',['Alta','Media','Baja','Sin prioridad']))+'<p class="sub">Interna: nunca se le dice al viajero.</p></div></div>';
+  h+='<p class="sub">Venta cruzada = transfer ofrecido junto con un tour; en las fichas EN VIVO aún no se marca (se mide con datos reales). Los conteos incluyen los ejemplos ficticios salvo que filtres.</p>';
+  return h;
+}
+function banda(){
+  return '<section class="band"><h3>Tu mes hoy <span class="chip c-mk" style="background:#3a3a3a;color:#ddd">cifras del equipo, sin promesa de resultados</span></h3><div class="bgrid">'
+   +'<div class="bk"><b>≈ US$ 2,000</b><span>pauta al mes (≈ MXN 40,000)</span></div>'
+   +'<div class="bk"><b>6–8 por día</b><span>leads nuevos (≈ 180–240 al mes)</span></div>'
+   +'<div class="bk"><b>≈ 70 %</b><span>conversión, según Rodolfo (no auditado)</span></div>'
+   +'<div class="bk"><b>US$ 8–11</b><span>de pauta por lead</span></div>'
+   +'<div class="bk"><b>2 personas</b><span>en reservas hoy</span></div></div>'
+   +'<p>Fórmulas: pauta ÷ leads al mes = US$ 2,000 ÷ 240 ≈ 8.3 hasta US$ 2,000 ÷ 180 ≈ 11.1 por lead · leads/día × 30 = 180 a 240 al mes · 70 % de 180–240 ≈ 126–168 clientes nuevos. Son tus números de la reunión; la demo no promete que cambien.</p></section>';
+}
+function render(){
+  var lv=$('#live');
+  if(MOCK){lv.className='live';lv.textContent='Modo ejemplo (?mock=1)';}
+  else if(S.liveOk){lv.className='live on';lv.textContent='En vivo · '+S.live.length+' solicitudes reales';}
+  else if(S.liveOk===false){lv.className='live off';lv.textContent='Sin datos en vivo todavía · mostrando ejemplos';}
+  else{lv.className='live';lv.textContent='Cargando…';}
+  $('#nav').innerHTML=VISTAS.map(function(v){return '<button data-v="'+v.id+'" class="'+(v.id===S.view?'on':'')+'">'+v.n+'</button>';}).join('');
+  var fn={atender:vAtender,reservas:vReservas,pipeline:vPipeline,hoteles:vHoteles,seguimientos:vSeg,gerencia:vGerencia}[S.view]||vAtender;
+  var keepQ=document.activeElement&&document.activeElement.id==='fq';
+  $('#main').innerHTML=banda()+fn();
+  if(keepQ){var q=$('#fq');if(q){q.focus();q.setSelectionRange(q.value.length,q.value.length);}}
+}
+
+/* ====== Eventos ====== */
+function setView(v){S.view=v;try{history.replaceState(null,'',location.pathname+'?'+(function(){var p=new URLSearchParams(location.search);p.set('vista',v);return p.toString();})());}catch(e){}render();}
+document.addEventListener('click',function(ev){
+  var vb=ev.target.closest('[data-v]');if(vb){setView(vb.getAttribute('data-v'));return;}
+  var b=ev.target.closest('[data-a]');if(!b||b.tagName==='SELECT')return;
+  var card=b.closest('[data-id]'),id=(card||b).getAttribute('data-id'),l=S.all.filter(function(x){return x.id===id;})[0];if(!l)return;
+  var a=b.getAttribute('data-a');
+  if(a==='copy')copiar(textoReserva(l)).then(function(){toast('Copiado en formato de reserva');},function(){toast('No se pudo copiar');});
+  else if(a==='send')toast('PROPUESTA: aquí la ficha se enviaría a tu sistema de reservas. En esta demo no se envía nada.');
+  else if(a==='toque'){var e=edOf(id);e.toques=Math.min(3,(l.toques||0)+1);e.toqueAt=Date.now();saveEd();build();render();toast('Toque marcado (maqueta, no se envió nada)');}
+  else if(a==='perdido'){edOf(id).etapa='perdido';saveEd();build();render();}
+});
+document.addEventListener('change',function(ev){
+  var t=ev.target;
+  if(t.getAttribute('data-f')){S.f[t.getAttribute('data-f')]=t.value;render();return;}
+  if(t.getAttribute('data-a')==='etapa'){var id=t.closest('[data-id]').getAttribute('data-id');edOf(id).etapa=t.value;saveEd();build();render();}
+});
+document.addEventListener('input',function(ev){if(ev.target.id==='fq'){S.f.q=ev.target.value;render();}});
+$('#bRef').addEventListener('click',function(){pull().then(function(){toast('Actualizado');});});
+function csvCell(v){v=String(v==null?'':v);return /[",\n]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v;}
+$('#bCsv').addEventListener('click',function(){
+  var cols=['Origen','Canal','Prioridad','Etapa','NAME','DATE','SERVICE','Tipo de servicio','Destino','PICK UP TIME','ADULTS/KIDS (PAX)','HOTEL','ROOM','FLIGHT','AIRLINE','PRICE','CONCIERGE','Idioma','Nota'];
+  var rows=filt(S.all).map(function(l){var av=splitVuelo(l.vuelo);return [l.origen,l.canal,l.prio,ETAPAS[EIDX[l.etapa]].n,l.nombre,l.fecha,l.det,l.svc,l.dest?DESTS[l.dest]:'',l.pickup,l.pax,l.hotel,l.room,av.n,av.a,l.precio,l.concierge,l.lang,l.nota2].map(csvCell).join(',');});
+  var blob=new Blob(['﻿'+cols.map(csvCell).join(',')+'\n'+rows.join('\n')],{type:'text/csv;charset=utf-8'});
+  var a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='reservas-xamanha-demo.csv';document.body.appendChild(a);a.click();document.body.removeChild(a);toast('CSV exportado ('+rows.length+' filas)');
+});
+
+/* ====== Arranque ====== */
+var v0=Q.get('vista');if(v0&&VISTAS.some(function(v){return v.id===v0;}))S.view=v0;
+build();render();pull();
+if(!MOCK)setInterval(pull,30000);
+})();
+</script>
+</body>
+</html>
